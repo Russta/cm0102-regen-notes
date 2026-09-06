@@ -1,0 +1,27 @@
+# CM 01/02 save data -- never commit these (hundreds of MB, user-specific)
+*.sav
+*.sav.*
+*.gpf
+*.gpf2
+*.gpf3
+*.rot
+
+# snapshots produced by this tool
+snapshots/
+*.snapshot.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,7 @@
+# Normalise line endings: LF in the repo, checked out however the OS prefers.
+* text=auto eol=lf
+
+*.png binary
+*.sav binary
+*.gpf binary
+*.gpf2 binary

@@ -1,0 +1,51 @@
+name: Build Windows exe
+
+# Builds a standalone .exe with PyInstaller. Runs on every release (attaching
+# the exe to the release), and can be triggered by hand from the Actions tab.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller .
+
+      - name: Run tests
+        run: |
+          pip install pytest
+          pytest
+
+      - name: Build exe
+        run: >
+          pyinstaller --onefile --name cm0102-regen-notes
+          --collect-submodules cm0102_regen_notes
+          cm0102_regen_notes/__main__.py
+
+      - name: Smoke-test the exe
+        run: dist\cm0102-regen-notes.exe --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cm0102-regen-notes-windows
+          path: dist/cm0102-regen-notes.exe
+
+      - name: Attach exe to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/cm0102-regen-notes.exe

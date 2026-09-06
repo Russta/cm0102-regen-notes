@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cm0102-regen-notes"
+version = "0.1.0"
+description = "Match CM 01/02 regen players to the originals they replaced and write it into their in-game Notes."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Russta" }]
+keywords = ["championship-manager", "cm0102", "save-editor", "regens"]
+classifiers = [
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pyinstaller>=6"]
+
+[project.scripts]
+cm0102-regen-notes = "cm0102_regen_notes.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Russta/cm0102-regen-notes"
+Source = "https://github.com/Russta/cm0102-regen-notes"
+
+[tool.setuptools]
+packages = ["cm0102_regen_notes"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
