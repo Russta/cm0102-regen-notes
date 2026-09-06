@@ -34,7 +34,7 @@ jobs:
         run: >
           pyinstaller --onefile --name cm0102-regen-notes
           --collect-submodules cm0102_regen_notes
-          cm0102_regen_notes/__main__.py
+          packaging/pyinstaller_entry.py
 
       - name: Smoke-test the exe
         run: dist\cm0102-regen-notes.exe --version
