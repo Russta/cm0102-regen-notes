@@ -1,60 +1,62 @@
 # CM 01/02 Regen Notes Tool
 
-A small, open-source Windows tool for **Championship Manager 01/02** that:
+An open-source Windows tool for **Championship Manager 01/02** that identifies
+which of your current players are **regens** of which original players, and
+writes the original name into each regen's in-game **Notes** — directly in
+the `.sav`, without launching the game.
 
-1. On day one of a new save, takes a snapshot of every player's identity and
-   stable attributes (like the community's `.gpf` / `.gpf2` tools).
-2. Later, works out which current players are **regens** of which original
-   players — optionally only showing matches where the *original* player's
-   PA was 140+.
-3. Writes the matched original identity into each regen's in-game **Notes**
-   field, directly in the `.sav` — **additively**. It never renames a player
-   in place.
-4. Optionally exports the match list to CSV.
+It's the same idea as the community's Generated Player Finder (GPF2/GPF3),
+rebuilt from scratch as a single double-click `.exe` with the source in the
+open.
 
-It's distributed as a plain `.exe` (no Python or command line needed to use
-it), and the full source is here so anyone can read exactly what it does to
-their save.
+## How it works
 
-## Status
+1. **On day one of a new save**, take a snapshot (`Career.sav.rnw`) — one
+   record per `player.dat` slot: the occupant's name plus CA / PA / nation.
+   Already run GPF2? Skip this and point the tool at its `Career.sav.gpf2`.
+2. **Later**, the tool compares the live save to that snapshot. `player.dat`
+   slots are fixed for the life of a save, so a slot whose current occupant's
+   name differs from its day-one name is holding a regen — and the day-one
+   name is who they replaced. The slot number *is* the link; there's no
+   attribute-fingerprint guessing. On the reference save it rediscovers every
+   known regen (Messi, Ronaldo, Lewandowski, …).
+3. **Filter** by minimum PA (of the current player — the same thing GPF2's
+   "potential >=" button does), or by name.
+4. **Export** the list to CSV, and/or **write** each original name into its
+   regen's Notes tab.
 
-What works today:
+## What it does that the older tools don't
 
-| Piece | State |
-| --- | --- |
-| `.sav` container parsing (block table) | ✅ verified against a real 517 MB save |
-| `notes.dat` read + write (overwrite in place / append new / bulk) | ✅ verified in-game |
-| Day-one identity snapshot (`.rnw` sidecar) | ✅ names + CA/PA/nation per slot |
-| Read GPF2's `.gpf2` day-one snapshot | ✅ decoded (names + slot) |
-| Regen matching (current name vs day-one name, by `player.dat` slot) | ✅ rediscovers all 12 known regens in the reference save |
-| `potential >=` filter + CSV export | ✅ |
-| Write matched originals into every regen's Notes | ✅ `annotate`, byte-integrity-checked |
-| GUI (Tkinter) | ✅ snapshot / find regens / filter / CSV / write notes |
-| Auto-built Windows `.exe` on release | ✅ workflow in place, untested against a real release |
+- **Writes the results back into the save.** GPF2/GPF3 only show you a list;
+  this annotates every regen's in-game Notes for you, offline, in one pass —
+  additively (it never renames a player in place, unlike Regen Cheat).
+- **Reads GPF2's `.gpf2` directly.** If you already snapshot with GPF2 there's
+  nothing new to run. It also has its own `.rnw` snapshot, which additionally
+  stores CA / PA / nation.
+- **CSV export that opens cleanly in Excel** — UTF-8 with BOM, so accented
+  names ("Germán", "Müller") aren't mojibaked.
+- **Shows Player ID and Staff ID** side by side — the `player.dat` index and
+  the `staff.dat` id — for reverse lookups in editors and other tools.
+- **Accent-insensitive search** — typing "German" finds "Germán".
+- **Safe writes.** Temp-file-plus-atomic-replace, optional timestamped
+  backup, and a warning if CM is running (an in-game save would clobber the
+  notes). Byte-for-byte integrity checked against 500 MB+ saves.
+- **Open source (MIT)** and a plain `.exe` — no Python, no scripts, nothing
+  hidden about what it does to your save.
 
-### How the matching works
-
-`player.dat` slots are fixed for the life of a save; when a player retires, a
-newgen is eventually written into a freed slot. So a slot whose **current**
-occupant's name differs from its **day-one** name is holding a regen, and the
-day-one name is who they replaced. The slot number is the link — no
-attribute-fingerprint guessing. The day-one names come from either GPF2's
-`.gpf2` or our own `.rnw` snapshot.
-
-`--potential-min` filters on the *current* player's PA (this is what GPF2's
-"Build changes list, potential >=" button does). `--original-potential-min`
-filters on the day-one player's PA and needs a `.rnw` baseline (the `.gpf2`
-stores no abilities).
-
-See [`docs/HANDOFF.md`](docs/HANDOFF.md) for the full reverse-engineering
-notes — save format, `notes.dat` layout, the `TStaff` / `TPlayer` structs,
-and the "No Reminder" sentinel that a naïve writer gets wrong.
+See [`docs/HANDOFF.md`](docs/HANDOFF.md) and
+[`docs/gpf2-and-matching.md`](docs/gpf2-and-matching.md) for the
+reverse-engineering notes — save format, `notes.dat` layout, the `TStaff` /
+`TPlayer` structs, the `.gpf2` format, and the "No Reminder" sentinel a naïve
+writer gets wrong.
 
 ## Safety
 
-Every write goes to a **new output file**; the tool never modifies the save
-you point it at. Still: keep your own backups. This edits an undocumented
-binary format.
+The GUI writes into the save you pick (temp file + atomic replace, with a
+"back up save" checkbox on by default). `annotate` on the command line
+defaults to a new output file. Either way the input is only overwritten when
+you ask for it, and every non-`notes.dat` block is preserved byte-for-byte.
+Keep your own backups anyway — this edits an undocumented binary format.
 
 ## Usage
 

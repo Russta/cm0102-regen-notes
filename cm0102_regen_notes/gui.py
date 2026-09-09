@@ -222,7 +222,9 @@ class App:
         p = filedialog.askopenfilename(title="Choose save", filetypes=[("CM saves", "*.sav"), ("All", "*.*")])
         if not p:
             return
-        self.save_path.set(p)
+        # Tk's file dialog hands back forward slashes on Windows; normalise so
+        # both path fields show the platform's native separator.
+        self.save_path.set(str(Path(p)))
         self._logline(f"save: {Path(p).name}")
         for ext in (".gpf2", ".rnw"):
             cand = Path(p + ext)
@@ -235,7 +237,7 @@ class App:
         p = filedialog.askopenfilename(title="Choose regen file",
                                        filetypes=[("Regen files", "*.gpf2 *.rnw"), ("All", "*.*")])
         if p:
-            self.baseline_path.set(p)
+            self.baseline_path.set(str(Path(p)))
             self._logline(f"regen file: {Path(p).name}")
 
     def _run_async(self, fn, on_done, status: str):

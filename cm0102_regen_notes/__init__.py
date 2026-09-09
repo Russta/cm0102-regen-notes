@@ -9,4 +9,4 @@ Nothing here mutates a save unless you explicitly ask it to, and every write
 goes to a new output file; the input is never touched.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
