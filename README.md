@@ -18,17 +18,33 @@ their save.
 
 ## Status
 
-Early. What works today:
+What works today:
 
 | Piece | State |
 | --- | --- |
-| `.sav` container parsing (block table) | ✅ done, verified against a real 517 MB save |
-| `notes.dat` read + write (overwrite in place / append new) | ✅ done, verified in-game |
-| Day-one identity snapshot | ⬜ not started |
-| Regen-matching algorithm | ⬜ not started (the hard part) |
-| CSV export | ⬜ not started |
+| `.sav` container parsing (block table) | ✅ verified against a real 517 MB save |
+| `notes.dat` read + write (overwrite in place / append new / bulk) | ✅ verified in-game |
+| Day-one identity snapshot (`.rnw` sidecar) | ✅ names + CA/PA/nation per slot |
+| Read GPF2's `.gpf2` day-one snapshot | ✅ decoded (names + slot) |
+| Regen matching (current name vs day-one name, by `player.dat` slot) | ✅ rediscovers all 12 known regens in the reference save |
+| `potential >=` filter + CSV export | ✅ |
+| Write matched originals into every regen's Notes | ✅ `annotate`, byte-integrity-checked |
 | GUI | ⬜ not started |
 | Auto-built Windows `.exe` on release | ✅ workflow in place, untested against a real release |
+
+### How the matching works
+
+`player.dat` slots are fixed for the life of a save; when a player retires, a
+newgen is eventually written into a freed slot. So a slot whose **current**
+occupant's name differs from its **day-one** name is holding a regen, and the
+day-one name is who they replaced. The slot number is the link — no
+attribute-fingerprint guessing. The day-one names come from either GPF2's
+`.gpf2` or our own `.rnw` snapshot.
+
+`--potential-min` filters on the *current* player's PA (this is what GPF2's
+"Build changes list, potential >=" button does). `--original-potential-min`
+filters on the day-one player's PA and needs a `.rnw` baseline (the `.gpf2`
+stores no abilities).
 
 See [`docs/HANDOFF.md`](docs/HANDOFF.md) for the full reverse-engineering
 notes — save format, `notes.dat` layout, the `TStaff` / `TPlayer` structs,
@@ -45,13 +61,25 @@ binary format.
 ```bash
 pip install -e .
 
-cm0102-regen-notes list-blocks   "path/to/save.sav"
-cm0102-regen-notes dump-notes    "path/to/save.sav"
-cm0102-regen-notes extract-block "path/to/save.sav" notes.dat notes.bin
-cm0102-regen-notes write-note    "path/to/save.sav" "out.sav" 67524 "Robert Lewandowski"
+# on day one of a new save (immediately after the first save), take a baseline:
+cm0102-regen-notes snapshot "Career.sav"              # -> Career.sav.rnw
+#   ...or just use GPF2's Career.sav.gpf2 if you already run GPF2
+
+# later, after regens have appeared:
+cm0102-regen-notes match    "Career.sav" "Career.sav.gpf2" --potential-min 150 --csv regens.csv
+cm0102-regen-notes annotate "Career.sav" "Career.sav.gpf2" "Career_annotated.sav" --potential-min 150
+
+# low-level helpers:
+cm0102-regen-notes list-blocks   "Career.sav"
+cm0102-regen-notes dump-notes    "Career.sav"
+cm0102-regen-notes extract-block "Career.sav" notes.dat notes.bin
+cm0102-regen-notes write-note    "Career.sav" "out.sav" 67524 "Robert Lewandowski"
 ```
 
-`write-note` refuses to overwrite the input file.
+`match` and `annotate` accept either a `.gpf2` (from GPF2) or a `.rnw` (from
+`snapshot`) as the day-one baseline. `annotate` and `write-note` always write
+to a new file and refuse to overwrite the input. `annotate --dry-run` shows
+what it would write without touching anything.
 
 ## Development
 
@@ -60,10 +88,11 @@ pip install -e ".[dev]"
 pytest
 ```
 
-`tests/test_notes.py` is self-contained (it fabricates a format-accurate
-mini-save). `tests/verify_real_save.py` is a separate, heavier check you point
-at a real `.sav` — it writes a note to a temp copy and confirms every other
-block is byte-for-byte identical afterwards.
+`tests/test_notes.py` and `tests/test_match.py` are self-contained (they
+fabricate a format-accurate mini-save via `tests/synth.py`).
+`tests/verify_real_save.py` is a separate, heavier check you point at a real
+`.sav` — it writes a note to a temp copy and confirms every other block is
+byte-for-byte identical afterwards.
 
 ## Prior art and credit
 
@@ -76,8 +105,14 @@ these community projects:
   `TStaff` / `TPlayer` / block-table layout (independently re-verified here
   against real save data). No `LICENSE` file present, so nothing from them is
   vendored.
+- **[ChrisReganXP/CMScouter](https://github.com/ChrisReganXP/CMScouter)** —
+  C#; cross-checked the `TPlayer` attribute offsets (CA at byte 5, PA at byte
+  7, etc.) and the `staff.dat` / `player.dat` / name-table record sizes
+  against its data classes. Verified against real save data; no code copied.
 - **GPF / GPF2 / GPF3** (Generated Player Finder) — closed-source; the
-  reference for what regen matching should feel like.
+  reference for what regen matching should feel like. We read GPF2's `.gpf2`
+  sidecar (a day-one name snapshot) but reimplemented the matching from
+  scratch.
 - **Regen Cheat** (part of JLCollection, by Andrei Yakovenko) — renames
   regens back in place. This tool deliberately does *not* do that; it only
   annotates Notes.

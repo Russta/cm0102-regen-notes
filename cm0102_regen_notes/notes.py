@@ -162,6 +162,25 @@ def build_updated_notes_block(
     return bytes(out), True
 
 
+def _splice_notes_block(sav: SavFile, new_notes: bytes) -> bytearray:
+    """Return a full copy of ``sav.data`` with notes.dat replaced by
+    ``new_notes`` and the block table patched (notes.dat's own size, plus the
+    position of every block stored physically after it)."""
+    notes_block = sav.block("notes.dat")
+    p, s = notes_block.position, notes_block.size
+    delta = len(new_notes) - s
+
+    result = bytearray(sav.data)
+    if delta != 0:
+        for b in sav.blocks:
+            if b.name == "notes.dat":
+                struct.pack_into("<I", result, b.table_off + 4, len(new_notes))
+            elif b.position > p:
+                struct.pack_into("<I", result, b.table_off, b.position + delta)
+    result[p : p + s] = new_notes
+    return result
+
+
 def write_note(
     in_path: str | Path,
     out_path: str | Path,
@@ -172,38 +191,52 @@ def write_note(
 
     The input file is read but never modified. Returns a summary dict.
     """
+    summary = write_notes_bulk(in_path, out_path, [(staff_id, text)])
+    summary["staff_id"] = staff_id
+    summary["action"] = "appended" if summary["appended"] else "overwrote"
+    return summary
+
+
+def write_notes_bulk(
+    in_path: str | Path,
+    out_path: str | Path,
+    items: list[tuple[int, str]],
+) -> dict:
+    """Write many notes in a single pass over the file.
+
+    ``items`` is a list of ``(staff_id, text)``. Each is applied in order:
+    an existing note for that staff id has its text overwritten (dates kept),
+    otherwise a new record is appended with the current game date and the
+    "No Reminder" sentinel. The 517 MB save is read once and written once.
+    """
     sav = SavFile.load(in_path)
     if sav.compressed:
         raise NotImplementedError("compressed saves are not supported for writing")
+    if Path(out_path).resolve() == Path(in_path).resolve():
+        raise ValueError("refusing to overwrite the input save; choose a different out_path")
 
     notes_block = sav.block("notes.dat")
-    p, s = notes_block.position, notes_block.size
-    old_notes = sav.data[p : p + s]
-
+    old_size = notes_block.size
+    notes_bytes = sav.data[notes_block.position : notes_block.position + old_size]
     created = get_current_game_date_bytes(sav)
-    new_notes, appended = build_updated_notes_block(old_notes, staff_id, text, created)
-    delta = len(new_notes) - len(old_notes)
 
-    result = bytearray(sav.data)
+    appended = overwrote = 0
+    for staff_id, text in items:
+        notes_bytes, did_append = build_updated_notes_block(notes_bytes, staff_id, text, created)
+        if did_append:
+            appended += 1
+        else:
+            overwrote += 1
 
-    if delta != 0:
-        # Patch the block table: notes.dat's own size, and the position of
-        # every block physically stored after it.
-        for b in sav.blocks:
-            if b.name == "notes.dat":
-                struct.pack_into("<I", result, b.table_off + 4, len(new_notes))
-            elif b.position > p:
-                struct.pack_into("<I", result, b.table_off, b.position + delta)
-
-    result[p : p + s] = new_notes
-
+    result = _splice_notes_block(sav, notes_bytes)
     Path(out_path).write_bytes(result)
 
     return {
-        "staff_id": staff_id,
-        "action": "appended" if appended else "overwrote",
-        "notes_size_before": s,
-        "notes_size_after": len(new_notes),
-        "delta": delta,
+        "notes_written": len(items),
+        "appended": appended,
+        "overwrote": overwrote,
+        "notes_size_before": old_size,
+        "notes_size_after": len(notes_bytes),
+        "delta": len(notes_bytes) - old_size,
         "out_path": str(out_path),
     }
