@@ -21,6 +21,7 @@ from typing import Iterator, Protocol
 from .clubs import ClubTable
 from .gpf2 import Gpf2Snapshot
 from .names import NameTables
+from .nations import NationTable
 from .records import PlayerRecord, iter_staff
 from .savfile import SavFile
 from .snapshot import RnwSnapshot
@@ -54,7 +55,8 @@ class RegenMatch:
     original_name: str
     current_name: str
     current_club: str
-    current_nation: int  # nation id (index into nation.dat), not resolved to a name
+    current_nationality: str  # 3-letter code, e.g. "ENG" ("" if unknown)
+    current_nation: int  # raw nation id (index into nation.dat)
     current_staff_id: int
     current_ca: int
     current_pa: int
@@ -92,6 +94,7 @@ def find_regens(
     sav = SavFile.load(save_path)
     tables = NameTables.from_sav(sav)
     clubs = ClubTable.from_sav(sav)
+    nations = NationTable.from_sav(sav)
     baseline = load_baseline(baseline_path, tables)
 
     staff_buf = sav.read_block("staff.dat")
@@ -136,6 +139,7 @@ def find_regens(
             original_name=original_name,
             current_name=current_name,
             current_club=clubs.name(staff.club),
+            current_nationality=nations.code(staff.nation),
             current_nation=staff.nation,
             current_staff_id=staff.staff_id,
             current_ca=player.ca,
@@ -153,10 +157,11 @@ def write_csv(matches: list[RegenMatch], out_path: str | Path) -> None:
     with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["Player ID", "Staff ID", "Nation ID", "Original Player",
-                    "Regen", "Club", "CA", "PA"])
+                    "Regen", "Club", "Nationality", "CA", "PA"])
         # Same default order as the app's table: highest PA first.
         for m in sorted(matches, key=lambda m: (-m.current_pa, m.slot)):
             w.writerow([
                 m.slot, m.current_staff_id, m.current_nation, m.original_name,
-                m.current_name, m.current_club, m.current_ca, m.current_pa,
+                m.current_name, m.current_club, m.current_nationality,
+                m.current_ca, m.current_pa,
             ])

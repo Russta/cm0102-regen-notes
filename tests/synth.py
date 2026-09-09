@@ -12,6 +12,7 @@ from cm0102_regen_notes.records import (
 )
 from cm0102_regen_notes.names import TNAMES_RECORD_LEN
 from cm0102_regen_notes.clubs import CLUB_RECORD_LEN, C_LONG_NAME, C_SHORT_NAME
+from cm0102_regen_notes.nations import NATION_RECORD_LEN, N_CODE
 from cm0102_regen_notes.gpf2 import GPF2_RECORD_LEN
 
 GENERAL_DATE = struct.pack("<hhi", 12, 2025, 0)
@@ -47,6 +48,18 @@ def club_table(clubs: list[tuple[int, str]]) -> bytes:
         enc = name.encode("latin-1")
         rec[C_LONG_NAME : C_LONG_NAME + len(enc)] = enc
         rec[C_SHORT_NAME : C_SHORT_NAME + len(enc)] = enc
+        out += rec
+    return bytes(out)
+
+
+def nation_table(nations: list[tuple[int, str]]) -> bytes:
+    """``nations`` is a list of ``(nation_id, code)`` e.g. ``(61, "ENG")``."""
+    out = bytearray()
+    for nation_id, code in nations:
+        rec = bytearray(NATION_RECORD_LEN)
+        struct.pack_into("<i", rec, 0, nation_id)
+        enc = code.encode("latin-1")
+        rec[N_CODE : N_CODE + len(enc)] = enc
         out += rec
     return bytes(out)
 
@@ -118,6 +131,7 @@ def make_world():
         ("second_names.dat", name_table(seconds)),
         ("common_names.dat", name_table(commons)),
         ("club.dat", club_table([(10, "Barcelona"), (11, "Manchester United"), (12, "Real Madrid")])),
+        ("nation.dat", nation_table([(1, "ENG"), (7, "BRA"), (9, "ESP")])),
         ("staff.dat", b"".join(staff)),
         ("player.dat", b"".join(players)),
         ("notes.dat", notes_block([])),
@@ -125,5 +139,5 @@ def make_world():
     sav = build_sav(blocks)
     gpf2 = gpf2_bytes([(1, 1, 0), (2, 2, 0), (3, 3, 0), (4, 4, 0)])
     meta = {"regen_slot": 2, "regen_staff_id": 103, "regen_original": "Zinedine Zidane",
-            "regen_club": "Real Madrid", "regen_nation": 1}
+            "regen_club": "Real Madrid", "regen_nation": 1, "regen_nationality": "ENG"}
     return sav, gpf2, meta

@@ -72,13 +72,14 @@ def _cm0102_running() -> bool:
 
 
 COLUMNS = [
-    ("slot", "Player ID", 65),
-    ("staff_id", "Staff ID", 65),
-    ("original_name", "Original Player", 185),
-    ("current_name", "Regen", 185),
-    ("club", "Club", 160),
-    ("current_ca", "CA", 42),
-    ("current_pa", "PA", 42),
+    ("slot", "Player ID", 62),
+    ("staff_id", "Staff ID", 62),
+    ("original_name", "Original Player", 180),
+    ("current_name", "Regen", 180),
+    ("club", "Club", 155),
+    ("nationality", "Nat", 44),
+    ("current_ca", "CA", 40),
+    ("current_pa", "PA", 40),
 ]
 NAME_COLS = ("original_name", "current_name", "club")
 
@@ -345,7 +346,7 @@ class App:
         for m in sorted(rows, key=lambda m: (-m.current_pa, m.slot)):
             self.tree.insert("", END, values=(
                 m.slot, m.current_staff_id, m.original_name, m.current_name,
-                m.current_club, m.current_ca, m.current_pa,
+                m.current_club, m.current_nationality, m.current_ca, m.current_pa,
             ))
         noun = "player" if len(rows) == 1 else "players"
         shown_note = f"{len(rows):,} {noun} shown of {len(self._all_matches):,} regens"
