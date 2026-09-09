@@ -28,9 +28,10 @@ GITHUB_URL = "https://github.com/Russta/cm0102-regen-notes"
 FORUM_URL = "https://champman0102.co.uk/"  # TODO: point at the release thread once it exists
 
 COLUMNS = [
-    ("slot", "Slot", 55),
-    ("original_name", "Original Player", 210),
-    ("current_name", "Regen", 210),
+    ("slot", "Player ID", 70),
+    ("staff_id", "Staff ID", 70),
+    ("original_name", "Original Player", 205),
+    ("current_name", "Regen", 205),
     ("current_ca", "CA", 45),
     ("current_pa", "PA", 45),
 ]
@@ -317,7 +318,8 @@ class App:
         self.tree.delete(*self.tree.get_children())
         for m in sorted(rows, key=lambda m: (-m.current_pa, m.slot)):
             self.tree.insert("", END, values=(
-                m.slot, m.original_name, m.current_name, m.current_ca, m.current_pa,
+                m.slot, m.current_staff_id, m.original_name, m.current_name,
+                m.current_ca, m.current_pa,
             ))
         noun = "player" if len(rows) == 1 else "players"
         shown_note = f"{len(rows):,} {noun} shown of {len(self._all_matches):,} regens"
