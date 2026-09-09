@@ -88,8 +88,9 @@ def _cmd_match(args: argparse.Namespace) -> int:
     for m in sorted(matches, key=lambda m: (-m.current_pa, m.slot))[: args.limit]:
         origin = m.original_name or "(empty slot)"
         opa = f" origPA={m.original_pa}" if m.original_pa is not None else ""
+        club = f" @ {m.current_club}" if m.current_club else ""
         print(f"  slot {m.slot:<7} PA={m.current_pa:<4} CA={m.current_ca:<4} "
-              f"{m.current_name!r:<28} <- regen of {origin!r}{opa}")
+              f"{m.current_name!r:<26}{club:<24} <- regen of {origin!r}{opa}")
     if args.limit and len(matches) > args.limit:
         print(f"  ... {len(matches) - args.limit} more (raise --limit or use --csv)")
     if args.csv:

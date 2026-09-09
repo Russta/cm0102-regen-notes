@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Protocol
 
+from .clubs import ClubTable
 from .gpf2 import Gpf2Snapshot
 from .names import NameTables
 from .records import PlayerRecord, iter_staff
@@ -52,6 +53,7 @@ class RegenMatch:
     slot: int
     original_name: str
     current_name: str
+    current_club: str
     current_staff_id: int
     current_ca: int
     current_pa: int
@@ -88,6 +90,7 @@ def find_regens(
     """
     sav = SavFile.load(save_path)
     tables = NameTables.from_sav(sav)
+    clubs = ClubTable.from_sav(sav)
     baseline = load_baseline(baseline_path, tables)
 
     staff_buf = sav.read_block("staff.dat")
@@ -131,6 +134,7 @@ def find_regens(
             slot=slot,
             original_name=original_name,
             current_name=current_name,
+            current_club=clubs.name(staff.club),
             current_staff_id=staff.staff_id,
             current_ca=player.ca,
             current_pa=player.effective_pa,
@@ -146,10 +150,10 @@ def write_csv(matches: list[RegenMatch], out_path: str | Path) -> None:
     # the app's table.
     with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
-        w.writerow(["Player ID", "Staff ID", "Original Player", "Regen", "CA", "PA"])
+        w.writerow(["Player ID", "Staff ID", "Original Player", "Regen", "Club", "CA", "PA"])
         # Same default order as the app's table: highest PA first.
         for m in sorted(matches, key=lambda m: (-m.current_pa, m.slot)):
             w.writerow([
                 m.slot, m.current_staff_id, m.original_name, m.current_name,
-                m.current_ca, m.current_pa,
+                m.current_club, m.current_ca, m.current_pa,
             ])

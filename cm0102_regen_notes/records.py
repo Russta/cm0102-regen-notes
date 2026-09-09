@@ -57,6 +57,7 @@ class StaffRecord:
     second_name: int
     common_name: int
     nation: int
+    club: int  # ClubId; links to club.dat (see clubs.py). <0 or unknown = no club.
     player_fk: int
 
     @classmethod
@@ -64,8 +65,9 @@ class StaffRecord:
         base = index * STAFF_RECORD_LEN
         sid, fn, sn, cn = struct.unpack_from("<iiii", buf, base + S_ID)
         nation = struct.unpack_from("<i", buf, base + S_NATION)[0]
+        club = struct.unpack_from("<i", buf, base + S_CLUB)[0]
         player_fk = struct.unpack_from("<i", buf, base + S_PLAYER_FK)[0]
-        return cls(index, sid, fn, sn, cn, nation, player_fk)
+        return cls(index, sid, fn, sn, cn, nation, club, player_fk)
 
 
 @dataclass(frozen=True)

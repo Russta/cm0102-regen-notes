@@ -35,6 +35,7 @@ def test_find_regens_gpf2(tmp_path):
     assert m.current_staff_id == meta["regen_staff_id"]
     assert m.original_name == meta["regen_original"]
     assert m.current_name == "Reginald Bloggs"
+    assert m.current_club == meta["regen_club"]
     assert m.current_pa == 175
     assert m.original_pa is None  # gpf2 has no ability
 
@@ -124,16 +125,16 @@ def test_write_csv_format_and_order(tmp_path):
 
     out = tmp_path / "regens.csv"
     write_csv([
-        RegenMatch(10, "Low PA Guy", "Regen A", 111, 100, 140, None),
-        RegenMatch(42866, "Germán Burgos", "Iván Fleita", 29729, 163, 200, None),
+        RegenMatch(10, "Low PA Guy", "Regen A", "Some FC", 111, 100, 140, None),
+        RegenMatch(42866, "Germán Burgos", "Iván Fleita", "Juventus", 29729, 163, 200, None),
     ], out)
 
     raw = out.read_bytes()
     assert raw.startswith(b"\xef\xbb\xbf")  # UTF-8 BOM so Excel reads it right
     lines = out.read_text(encoding="utf-8-sig").splitlines()
-    assert lines[0] == "Player ID,Staff ID,Original Player,Regen,CA,PA"
-    assert lines[1] == "42866,29729,Germán Burgos,Iván Fleita,163,200"  # highest PA first
-    assert lines[2] == "10,111,Low PA Guy,Regen A,100,140"
+    assert lines[0] == "Player ID,Staff ID,Original Player,Regen,Club,CA,PA"
+    assert lines[1] == "42866,29729,Germán Burgos,Iván Fleita,Juventus,163,200"  # highest PA first
+    assert lines[2] == "10,111,Low PA Guy,Regen A,Some FC,100,140"
 
 
 def test_cm0102_running_returns_bool():

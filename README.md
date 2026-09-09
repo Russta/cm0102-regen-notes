@@ -38,6 +38,8 @@ open.
   with BOM, so accented names ("Tchouaméni", "Müller", etc.) aren't mojibaked.
 - **Shows Player ID and Staff ID.** The `player.dat` index and the
   `staff.dat` id to allow for reverse lookups to other editors and tools.
+- **Shows the regen's current club** — so you can spot the ones at your own
+  club, or a rival's.
 - **Accent-insensitive search.** Searching for "Aurelien" finds "Aurélien".
 - **Safe writes.** Temp-file-plus-atomic-replace, optional timestamped
   backup, and a warning if CM01/02 is running to prevent Note overwrites.
