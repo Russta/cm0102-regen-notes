@@ -54,6 +54,7 @@ class RegenMatch:
     original_name: str
     current_name: str
     current_club: str
+    current_nation: int  # nation id (index into nation.dat), not resolved to a name
     current_staff_id: int
     current_ca: int
     current_pa: int
@@ -135,6 +136,7 @@ def find_regens(
             original_name=original_name,
             current_name=current_name,
             current_club=clubs.name(staff.club),
+            current_nation=staff.nation,
             current_staff_id=staff.staff_id,
             current_ca=player.ca,
             current_pa=player.effective_pa,
@@ -150,10 +152,11 @@ def write_csv(matches: list[RegenMatch], out_path: str | Path) -> None:
     # the app's table.
     with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
-        w.writerow(["Player ID", "Staff ID", "Original Player", "Regen", "Club", "CA", "PA"])
+        w.writerow(["Player ID", "Staff ID", "Nation ID", "Original Player",
+                    "Regen", "Club", "CA", "PA"])
         # Same default order as the app's table: highest PA first.
         for m in sorted(matches, key=lambda m: (-m.current_pa, m.slot)):
             w.writerow([
-                m.slot, m.current_staff_id, m.original_name, m.current_name,
-                m.current_club, m.current_ca, m.current_pa,
+                m.slot, m.current_staff_id, m.current_nation, m.original_name,
+                m.current_name, m.current_club, m.current_ca, m.current_pa,
             ])

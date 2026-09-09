@@ -84,8 +84,8 @@ and compare.
 Double-click the `.exe` (or run `python -m cm0102_regen_notes.gui` from
 source) for the GUI: pick your save and a **regen file** (a `.gpf2` from
 GPF2, or a `.rnw` from **Take snapshot now**), set the minimum PA, **Find
-Regens**, filter by name if you want, then **Export CSV…** or **Write notes
-to save**. Writing goes **into the save you picked** (with a "back up save"
+Regens**, filter by original player / regen / club if you want, then **Export
+CSV…** or **Write notes to save**. Writing goes **into the save you picked** (with a "back up save"
 checkbox, on by default, that drops a timestamped copy alongside it); it's
 done via a temp file + atomic replace so a crash can't corrupt the save.
 

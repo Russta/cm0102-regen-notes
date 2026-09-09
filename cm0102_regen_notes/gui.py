@@ -96,6 +96,7 @@ class App:
         self.backup_first = BooleanVar(value=True)
         self.filter_original = StringVar()
         self.filter_regen = StringVar()
+        self.filter_club = StringVar()
         self.status = StringVar(value="Pick a save file and a regen file to get started")
 
         self._all_matches: list[RegenMatch] = []
@@ -154,16 +155,19 @@ class App:
         fb = ttk.Frame(self.root, padding=(10, 0))
         fb.pack(fill=X)
         ttk.Label(fb, text="Filter  —  Original Player").pack(side=LEFT)
-        ttk.Entry(fb, textvariable=self.filter_original, width=26).pack(side=LEFT, padx=(4, 14))
+        ttk.Entry(fb, textvariable=self.filter_original, width=20).pack(side=LEFT, padx=(4, 12))
         ttk.Label(fb, text="Regen").pack(side=LEFT)
-        ttk.Entry(fb, textvariable=self.filter_regen, width=26).pack(side=LEFT, padx=(4, 14))
+        ttk.Entry(fb, textvariable=self.filter_regen, width=20).pack(side=LEFT, padx=(4, 12))
+        ttk.Label(fb, text="Club").pack(side=LEFT)
+        ttk.Entry(fb, textvariable=self.filter_club, width=20).pack(side=LEFT, padx=(4, 12))
         ttk.Button(fb, text="Clear", command=self._clear_filters).pack(side=LEFT)
-        for var in (self.filter_original, self.filter_regen):
+        for var in (self.filter_original, self.filter_regen, self.filter_club):
             var.trace_add("write", lambda *_: self._refilter())
 
     def _clear_filters(self):
         self.filter_original.set("")
         self.filter_regen.set("")
+        self.filter_club.set("")
 
     def _build_table(self):
         wrap = ttk.Frame(self.root, padding=(10, 4))
@@ -306,7 +310,10 @@ class App:
 
     def _find_done(self, matches: list[RegenMatch]):
         self._all_matches = matches
-        self._folded = [(_fold(m.original_name), _fold(m.current_name)) for m in matches]
+        self._folded = [
+            (_fold(m.original_name), _fold(m.current_name), _fold(m.current_club))
+            for m in matches
+        ]
         self._logline(f"found {len(matches):,} regens in the save")
         self._refilter()
 
@@ -319,14 +326,17 @@ class App:
             pa_min = 0
         q_orig = _fold(self.filter_original.get().strip())
         q_regen = _fold(self.filter_regen.get().strip())
+        q_club = _fold(self.filter_club.get().strip())
 
         rows = []
-        for m, (orig_folded, regen_folded) in zip(self._all_matches, self._folded):
+        for m, (orig_folded, regen_folded, club_folded) in zip(self._all_matches, self._folded):
             if m.current_pa < pa_min:
                 continue
             if q_orig and q_orig not in orig_folded:
                 continue
             if q_regen and q_regen not in regen_folded:
+                continue
+            if q_club and q_club not in club_folded:
                 continue
             rows.append(m)
 
@@ -339,7 +349,7 @@ class App:
             ))
         noun = "player" if len(rows) == 1 else "players"
         shown_note = f"{len(rows):,} {noun} shown of {len(self._all_matches):,} regens"
-        if q_orig or q_regen:
+        if q_orig or q_regen or q_club:
             shown_note += "  [filtered]"
         self.status.set(shown_note)
         self._csv_btn.configure(state=("normal" if rows else "disabled"))

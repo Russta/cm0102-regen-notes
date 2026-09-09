@@ -125,5 +125,5 @@ def make_world():
     sav = build_sav(blocks)
     gpf2 = gpf2_bytes([(1, 1, 0), (2, 2, 0), (3, 3, 0), (4, 4, 0)])
     meta = {"regen_slot": 2, "regen_staff_id": 103, "regen_original": "Zinedine Zidane",
-            "regen_club": "Real Madrid"}
+            "regen_club": "Real Madrid", "regen_nation": 1}
     return sav, gpf2, meta
