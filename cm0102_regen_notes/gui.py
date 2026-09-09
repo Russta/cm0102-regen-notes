@@ -68,9 +68,9 @@ class App:
 
         ttk.Label(f, text="Save file (.sav)").grid(row=0, column=0, sticky=W, pady=2)
         ttk.Entry(f, textvariable=self.save_path).grid(row=0, column=1, sticky="ew", padx=6)
-        ttk.Button(f, text="Browse…", command=self._pick_save).grid(row=0, column=2)
+        ttk.Button(f, text="Browse…", command=self._pick_save).grid(row=0, column=2, sticky=W)
 
-        ttk.Label(f, text="Day-one baseline (.gpf2 / .rnw)").grid(row=1, column=0, sticky=W, pady=2)
+        ttk.Label(f, text="Regen file (.gpf2 / .rnw)").grid(row=1, column=0, sticky=W, pady=2)
         ttk.Entry(f, textvariable=self.baseline_path).grid(row=1, column=1, sticky="ew", padx=6)
         bf = ttk.Frame(f)
         bf.grid(row=1, column=2, sticky=W)
@@ -87,14 +87,14 @@ class App:
 
         actions = ttk.Frame(f)
         actions.grid(row=3, column=0, columnspan=3, sticky=W, pady=(10, 0))
-        self._find_btn = ttk.Button(actions, text="Find regens", command=self._find)
+        self._find_btn = ttk.Button(actions, text="Find Regens", command=self._find)
         self._find_btn.pack(side=LEFT)
         self._csv_btn = ttk.Button(actions, text="Export CSV…", command=self._export_csv, state="disabled")
         self._csv_btn.pack(side=LEFT, padx=6)
         self._write_btn = ttk.Button(actions, text="Write notes to save", command=self._write_notes,
                                      state="disabled")
         self._write_btn.pack(side=LEFT)
-        ttk.Checkbutton(actions, text="back up the save first", variable=self.backup_first).pack(
+        ttk.Checkbutton(actions, text="back up save", variable=self.backup_first).pack(
             side=LEFT, padx=(10, 0))
 
         f.columnconfigure(1, weight=1)
@@ -288,7 +288,8 @@ class App:
                 m.slot, m.original_name or "(pregen)", m.current_name,
                 m.current_ca, m.current_pa,
             ))
-        shown_note = f"{len(rows):,} regen(s) shown  (of {len(self._all_matches):,} changed slots)"
+        noun = "player" if len(rows) == 1 else "players"
+        shown_note = f"{len(rows):,} {noun} shown of {len(self._all_matches):,} regens"
         if fo or fr:
             shown_note += "  [filtered]"
         self.status.set(shown_note)
@@ -341,16 +342,15 @@ class App:
 
         do_backup = self.backup_first.get()
         lines = [
-            f"Write {len(writable):,} note(s) directly into:",
+            f"Write {len(writable):,} notes directly into:",
             f"    {save.name}",
             "",
-            "Each regen's Notes tab will be set to their original player's name.",
-            "A note you already have on a regen will be replaced; notes on",
-            "everyone else are left untouched.",
+            "Each regen will have the name of their original player written to "
+            "their Notes section. Any Note already in there will be replaced.",
         ]
         if too_long:
             lines.append(f"\n{len(too_long)} skipped — original name too long for the Notes field.")
-        lines.append("\nBack up the save first." if do_backup
+        lines.append("\nSave will be backed up." if do_backup
                      else "\nNo backup will be made.")
         lines.append("\nProceed?")
         if not messagebox.askokcancel("Overwrite notes in this save?", "\n".join(lines),
