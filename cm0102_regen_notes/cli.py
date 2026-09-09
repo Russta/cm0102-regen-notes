@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .annotate import apply_annotations, plan_annotations
+from .annotate import apply_annotations, apply_annotations_in_place, plan_annotations
 from .match import find_regens, write_csv
 from .notes import parse_notes, write_note
 from .savfile import SavFile
@@ -99,9 +99,13 @@ def _cmd_match(args: argparse.Namespace) -> int:
 
 
 def _cmd_annotate(args: argparse.Namespace) -> int:
-    if Path(args.out).resolve() == Path(args.save).resolve():
-        print("refusing to write over the input save; choose a different OUT_SAVE", file=sys.stderr)
+    if not args.in_place and not args.out:
+        print("give an OUT_SAVE, or pass --in-place to write back into SAVE", file=sys.stderr)
         return 2
+    if args.out and not args.in_place and Path(args.out).resolve() == Path(args.save).resolve():
+        print("OUT_SAVE is the same file as SAVE; pass --in-place if that's intended", file=sys.stderr)
+        return 2
+
     plan = plan_annotations(
         args.save, args.baseline,
         potential_min=args.potential_min,
@@ -118,7 +122,13 @@ def _cmd_annotate(args: argparse.Namespace) -> int:
     if args.dry_run:
         print("\n--dry-run: nothing written")
         return 0
-    s = apply_annotations(args.save, args.out, plan)
+
+    if args.in_place:
+        s = apply_annotations_in_place(args.save, plan, backup=args.backup)
+        if s.get("backup"):
+            print(f"backup: {s['backup']}")
+    else:
+        s = apply_annotations(args.save, args.out, plan)
     print(f"\nwrote {s['notes_written']} note(s) ({s['appended']} new, {s['overwrote']} updated), "
           f"notes.dat delta {s['delta']:+}. output: {s['out_path']}")
     return 0
@@ -166,7 +176,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("annotate", help="write each regen's original identity into their Notes")
     p.add_argument("save")
     p.add_argument("baseline")
-    p.add_argument("out", help="output save file (must differ from SAVE)")
+    p.add_argument("out", nargs="?", help="output save file; omit and pass --in-place to edit SAVE")
+    p.add_argument("--in-place", action="store_true",
+                   help="write back into SAVE (atomic replace via a temp file)")
+    p.add_argument("--backup", action="store_true",
+                   help="with --in-place, copy SAVE to a timestamped backup first")
     p.add_argument("--potential-min", type=int, default=None)
     p.add_argument("--original-potential-min", type=int, default=None)
     p.add_argument("--include-empty-origin", action="store_true",

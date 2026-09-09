@@ -18,33 +18,33 @@ from tkinter import (
 from tkinter.scrolledtext import ScrolledText
 
 from . import __version__
-from .annotate import AnnotatePlan, apply_annotations
+from .annotate import AnnotatePlan, apply_annotations_in_place
 from .match import RegenMatch, find_regens, write_csv
 from .notes import NOTE_TEXT_MAX
 from .snapshot import write_snapshot
 
 COLUMNS = [
-    ("slot", "Slot", 60),
-    ("current_name", "Current player", 200),
+    ("slot", "Slot", 55),
+    ("original_name", "Original Player", 210),
+    ("current_name", "Regen", 210),
     ("current_ca", "CA", 45),
     ("current_pa", "PA", 45),
-    ("original_name", "Regen of", 200),
-    ("original_pa", "Orig PA", 60),
 ]
+NAME_COLS = ("original_name", "current_name")
 
 
 class App:
     def __init__(self, root: Tk):
         self.root = root
         root.title(f"CM 01/02 Regen Note Writer  {__version__}")
-        root.geometry("980x620")
-        root.minsize(760, 480)
+        root.geometry("900x600")
+        root.minsize(720, 460)
 
         self.save_path = StringVar()
         self.baseline_path = StringVar()
         self.min_pa = StringVar(value="150")
-        self.min_orig_pa = StringVar(value="")
         self.include_empty = BooleanVar(value=False)
+        self.backup_first = BooleanVar(value=True)
         self.status = StringVar(value="Pick a save file and a day-one baseline.")
 
         self._all_matches: list[RegenMatch] = []
@@ -76,15 +76,11 @@ class App:
 
         opts = ttk.Frame(f)
         opts.grid(row=2, column=0, columnspan=3, sticky=W, pady=(8, 0))
-        ttk.Label(opts, text="Min current PA").pack(side=LEFT)
+        ttk.Label(opts, text="Min PA").pack(side=LEFT)
         ttk.Spinbox(opts, from_=0, to=999, width=5, textvariable=self.min_pa,
                     command=self._refilter).pack(side=LEFT, padx=(4, 16))
-        ttk.Label(opts, text="Min original PA (needs .rnw)").pack(side=LEFT)
-        self._orig_spin = ttk.Spinbox(opts, from_=0, to=999, width=5, textvariable=self.min_orig_pa,
-                                      command=self._refilter)
-        self._orig_spin.pack(side=LEFT, padx=(4, 16))
-        ttk.Checkbutton(opts, text="include empty-slot origins", variable=self.include_empty,
-                        command=self._refilter).pack(side=LEFT)
+        ttk.Checkbutton(opts, text="include regens whose slot had no day-one player",
+                        variable=self.include_empty, command=self._refilter).pack(side=LEFT)
 
         actions = ttk.Frame(f)
         actions.grid(row=3, column=0, columnspan=3, sticky=W, pady=(10, 0))
@@ -92,9 +88,11 @@ class App:
         self._find_btn.pack(side=LEFT)
         self._csv_btn = ttk.Button(actions, text="Export CSV…", command=self._export_csv, state="disabled")
         self._csv_btn.pack(side=LEFT, padx=6)
-        self._write_btn = ttk.Button(actions, text="Write Notes to new save…",
-                                     command=self._write_notes, state="disabled")
+        self._write_btn = ttk.Button(actions, text="Write notes to save", command=self._write_notes,
+                                     state="disabled")
         self._write_btn.pack(side=LEFT)
+        ttk.Checkbutton(actions, text="back up the save first", variable=self.backup_first).pack(
+            side=LEFT, padx=(10, 0))
 
         f.columnconfigure(1, weight=1)
 
@@ -108,8 +106,8 @@ class App:
         self.tree = ttk.Treeview(wrap, columns=[c[0] for c in COLUMNS], show="headings")
         for key, label, width in COLUMNS:
             self.tree.heading(key, text=label, command=lambda k=key: self._sort_by(k))
-            anchor = W if key in ("current_name", "original_name") else "center"
-            self.tree.column(key, width=width, anchor=anchor, stretch=(key in ("current_name", "original_name")))
+            self.tree.column(key, width=width, anchor=(W if key in NAME_COLS else "center"),
+                             stretch=(key in NAME_COLS))
         vsb = ttk.Scrollbar(wrap, orient=VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side=LEFT, fill=BOTH, expand=True)
@@ -133,8 +131,7 @@ class App:
 
     def _set_busy(self, busy: bool, status: str | None = None):
         self._busy = busy
-        state = "disabled" if busy else "normal"
-        self._find_btn.configure(state=state)
+        self._find_btn.configure(state=("disabled" if busy else "normal"))
         for b in (self._csv_btn, self._write_btn):
             b.configure(state=("disabled" if busy or not self._shown else "normal"))
         if status:
@@ -214,8 +211,7 @@ class App:
         out, data = result
         gd = data["game_date"]
         self._logline(f"snapshot: {out}  ({data['player_count']:,} slots, in-game day {gd['day']} of {gd['year']})")
-        if data["player_count"] and gd["year"] >= 2000:
-            self._logline("  reminder: a snapshot is only a baseline if taken on/near day one of a new save.")
+        self._logline("  reminder: a snapshot is only a baseline if taken on/near day one of a new save.")
         self.baseline_path.set(str(out))
         self.status.set("Snapshot written and selected as the baseline.")
 
@@ -231,10 +227,6 @@ class App:
 
     def _find_done(self, matches: list[RegenMatch]):
         self._all_matches = matches
-        has_orig = any(m.original_pa is not None for m in matches)
-        self._orig_spin.configure(state=("normal" if has_orig else "disabled"))
-        if not has_orig:
-            self.min_orig_pa.set("")
         self._logline(f"found {len(matches):,} changed slot(s) total")
         self._refilter()
 
@@ -245,36 +237,24 @@ class App:
             pa_min = int(self.min_pa.get() or 0)
         except ValueError:
             pa_min = 0
-        try:
-            opa_min = int(self.min_orig_pa.get()) if self.min_orig_pa.get().strip() else None
-        except ValueError:
-            opa_min = None
         inc_empty = self.include_empty.get()
 
-        rows = []
-        for m in self._all_matches:
-            if m.current_pa < pa_min:
-                continue
-            if opa_min is not None and (m.original_pa is None or m.original_pa < opa_min):
-                continue
-            if m.original_was_empty and not inc_empty:
-                continue
-            rows.append(m)
-
+        rows = [
+            m for m in self._all_matches
+            if m.current_pa >= pa_min and (inc_empty or not m.original_was_empty)
+        ]
         self._shown = rows
         self.tree.delete(*self.tree.get_children())
         for m in sorted(rows, key=lambda m: (-m.current_pa, m.slot)):
             self.tree.insert("", END, values=(
-                m.slot, m.current_name, m.current_ca, m.current_pa,
-                m.original_name or "(empty slot)",
-                "" if m.original_pa is None else m.original_pa,
+                m.slot, m.original_name or "(empty slot)", m.current_name,
+                m.current_ca, m.current_pa,
             ))
         self.status.set(f"{len(rows):,} regen(s) shown  (of {len(self._all_matches):,} changed slots)")
         self._csv_btn.configure(state=("normal" if rows else "disabled"))
         self._write_btn.configure(state=("normal" if rows else "disabled"))
 
     def _sort_by(self, key: str):
-        idx = [c[0] for c in COLUMNS].index(key)
         rows = list(self.tree.get_children())
         descending = self._sort_state.get(key, False)
 
@@ -304,16 +284,7 @@ class App:
     def _write_notes(self):
         if not self._shown:
             return
-        save = self.save_path.get().strip()
-        default_out = str(Path(save).with_name(Path(save).stem + " annotated.sav"))
-        out = filedialog.asksaveasfilename(
-            title="Write annotated save", defaultextension=".sav",
-            initialfile=Path(default_out).name, filetypes=[("CM save", "*.sav")])
-        if not out:
-            return
-        if Path(out).resolve() == Path(save).resolve():
-            messagebox.showerror("Same file", "The output must be a different file from the input save.")
-            return
+        save = Path(self.save_path.get().strip())
 
         writable, too_long = [], []
         for m in self._shown:
@@ -326,23 +297,43 @@ class App:
         if not writable:
             messagebox.showinfo("Nothing to write", "No eligible regens in the current view.")
             return
-        msg = f"Write {len(writable):,} note(s) into a copy of:\n{Path(save).name}\n\nOutput:\n{Path(out).name}"
+
+        do_backup = self.backup_first.get()
+        lines = [
+            f"Write {len(writable):,} note(s) directly into:",
+            f"    {save.name}",
+            "",
+            "Each regen's Notes tab will be set to their original player's name.",
+            "A note you already have on a regen will be replaced; notes on",
+            "everyone else are left untouched.",
+        ]
         if too_long:
-            msg += f"\n\n({len(too_long)} skipped — original name too long for the Notes field.)"
-        if not messagebox.askokcancel("Confirm", msg):
+            lines.append(f"\n{len(too_long)} skipped — original name too long for the Notes field.")
+        lines.append("\nBack up the save first." if do_backup
+                     else "\nNo backup will be made.")
+        lines.append("\nProceed?")
+        if not messagebox.askokcancel("Overwrite notes in this save?", "\n".join(lines),
+                                      icon="warning"):
             return
 
         plan = AnnotatePlan(to_write=writable, skipped_empty_origin=[], skipped_too_long=too_long)
-        self._run_async(lambda: apply_annotations(save, out, plan), self._write_done,
-                        f"Writing {len(writable):,} notes into {Path(out).name}…")
+        self._run_async(lambda: apply_annotations_in_place(str(save), plan, backup=do_backup),
+                        self._write_done,
+                        f"Writing {len(writable):,} notes into {save.name}…")
 
     def _write_done(self, summary: dict):
+        if summary.get("backup"):
+            self._logline(f"backup: {summary['backup']}")
         self._logline(
             f"wrote {summary['notes_written']:,} note(s) "
             f"({summary['appended']} new, {summary['overwrote']} updated); "
             f"notes.dat delta {summary['delta']:+}  ->  {summary['out_path']}")
         self.status.set(f"Done — {summary['notes_written']:,} notes written to {Path(summary['out_path']).name}")
-        messagebox.showinfo("Finished", f"{summary['notes_written']:,} notes written.\n\n{summary['out_path']}")
+        msg = f"{summary['notes_written']:,} notes written into\n{summary['out_path']}"
+        if summary.get("backup"):
+            msg += f"\n\nBackup:\n{summary['backup']}"
+        messagebox.showinfo("Finished", msg)
+        self._invalidate()
 
 
 def main(argv: list[str] | None = None) -> int:

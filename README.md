@@ -61,7 +61,10 @@ binary format.
 Double-click the `.exe` (or run `python -m cm0102_regen_notes.gui` from
 source) for the GUI: pick your save and a day-one baseline (`.gpf2` or
 `.rnw`), set the minimum PA, **Find regens**, then **Export CSV** or **Write
-Notes to new save**. There's a **Take snapshot now** button for day one.
+notes to save**. Writing goes **into the save you picked** (with a "back up
+the save first" checkbox, on by default, that drops a timestamped copy
+alongside it); it's done via a temp file + atomic replace so a crash can't
+corrupt the save. There's a **Take snapshot now** button for day one.
 
 ### Command line (from source)
 
@@ -75,6 +78,7 @@ cm0102-regen-notes snapshot "Career.sav"              # -> Career.sav.rnw
 # later, after regens have appeared:
 cm0102-regen-notes match    "Career.sav" "Career.sav.gpf2" --potential-min 150 --csv regens.csv
 cm0102-regen-notes annotate "Career.sav" "Career.sav.gpf2" "Career_annotated.sav" --potential-min 150
+cm0102-regen-notes annotate "Career.sav" "Career.sav.gpf2" --in-place --backup --potential-min 150
 
 # low-level helpers:
 cm0102-regen-notes list-blocks   "Career.sav"
@@ -84,9 +88,11 @@ cm0102-regen-notes write-note    "Career.sav" "out.sav" 67524 "Robert Lewandowsk
 ```
 
 `match` and `annotate` accept either a `.gpf2` (from GPF2) or a `.rnw` (from
-`snapshot`) as the day-one baseline. `annotate` and `write-note` always write
-to a new file and refuse to overwrite the input. `annotate --dry-run` shows
-what it would write without touching anything.
+`snapshot`) as the day-one baseline. `annotate` writes to a new `OUT_SAVE`,
+or edits `SAVE` directly with `--in-place` (add `--backup` for a timestamped
+copy first; the write is a temp-file + atomic replace either way).
+`write-note` always writes a new file. `annotate --dry-run` shows what it
+would write without touching anything.
 
 ## Development
 

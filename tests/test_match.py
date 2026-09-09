@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from cm0102_regen_notes.annotate import apply_annotations, plan_annotations
+from pathlib import Path
+
+from cm0102_regen_notes.annotate import (
+    apply_annotations,
+    apply_annotations_in_place,
+    plan_annotations,
+)
 from cm0102_regen_notes.match import find_regens
 from cm0102_regen_notes.notes import NO_REMINDER_SENTINEL, parse_notes
 from cm0102_regen_notes.savfile import SavFile
@@ -85,6 +91,32 @@ def test_annotate_writes_original_into_regen_notes(tmp_path):
     for b in src.blocks:
         if b.name != "notes.dat":
             assert src.read_block(b.name) == after.read_block(b.name)
+
+
+def test_annotate_in_place_with_backup(tmp_path):
+    sp, gp, meta = _write_world(tmp_path)
+    original_bytes = sp.read_bytes()
+
+    plan = plan_annotations(sp, gp)
+    summary = apply_annotations_in_place(sp, plan, backup=True)
+
+    assert summary["notes_written"] == 1
+    assert summary["out_path"] == str(sp)
+    assert Path(summary["backup"]).exists()
+    assert Path(summary["backup"]).read_bytes() == original_bytes  # pristine copy
+    assert not (tmp_path / "now.sav.regennotes-tmp").exists()      # temp cleaned up
+
+    after = SavFile.load(sp)  # the save itself now carries the note
+    notes = parse_notes(after.read_block("notes.dat"))
+    assert [(n.staff_id, n.text) for n in notes] == [(meta["regen_staff_id"], meta["regen_original"])]
+
+
+def test_annotate_in_place_no_backup(tmp_path):
+    sp, gp, _ = _write_world(tmp_path)
+    plan = plan_annotations(sp, gp)
+    summary = apply_annotations_in_place(sp, plan, backup=False)
+    assert summary["backup"] is None
+    assert not list(tmp_path.glob("*(backup*"))
 
 
 def test_annotate_refuses_to_overwrite_input(tmp_path):
