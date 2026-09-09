@@ -59,6 +59,24 @@ defaults to a new output file. Either way the input is only overwritten when
 you ask for it, and every non-`notes.dat` block is preserved byte-for-byte.
 Keep your own backups anyway — this edits an undocumented binary format.
 
+## Download
+
+Grab `cm0102-regen-notes.exe` from the
+[latest release](https://github.com/Russta/cm0102-regen-notes/releases/latest)
+and double-click it. No install, no Python.
+
+**It's not code-signed.** A code-signing certificate isn't feasible for a
+free one-person project, so on first run Windows SmartScreen will show
+*"Windows protected your PC"* — click **More info → Run anyway**. This is
+normal for small open-source tools. If Microsoft Defender ever *blocks* the
+file outright instead of just warning, that's a false positive — please open
+an issue.
+
+Each release lists the **SHA-256** of the exe so you can verify the download
+(`Get-FileHash cm0102-regen-notes.exe` in PowerShell). The build is produced
+by GitHub Actions from the release tag, so you can also rebuild it yourself
+and compare.
+
 ## Usage
 
 Double-click the `.exe` (or run `python -m cm0102_regen_notes.gui` from
