@@ -10,10 +10,11 @@ from __future__ import annotations
 import queue
 import threading
 import traceback
+import webbrowser
 from pathlib import Path
 from tkinter import (
     BOTH, END, LEFT, RIGHT, VERTICAL, W, X, Y,
-    BooleanVar, StringVar, Tk, filedialog, font as tkfont, messagebox, ttk,
+    BooleanVar, Menu, StringVar, Tk, Toplevel, filedialog, font as tkfont, messagebox, ttk,
 )
 from tkinter.scrolledtext import ScrolledText
 
@@ -22,6 +23,9 @@ from .annotate import AnnotatePlan, apply_annotations_in_place
 from .match import RegenMatch, find_regens, write_csv
 from .notes import NOTE_TEXT_MAX
 from .snapshot import write_snapshot
+
+GITHUB_URL = "https://github.com/Russta/cm0102-regen-notes"
+FORUM_URL = "https://champman0102.co.uk/"  # TODO: point at the release thread once it exists
 
 COLUMNS = [
     ("slot", "Slot", 55),
@@ -43,17 +47,17 @@ class App:
         self.save_path = StringVar()
         self.baseline_path = StringVar()
         self.min_pa = StringVar(value="150")
-        self.include_pregens = BooleanVar(value=False)
         self.backup_first = BooleanVar(value=True)
         self.filter_original = StringVar()
         self.filter_regen = StringVar()
-        self.status = StringVar(value="Pick a save file and a day-one baseline.")
+        self.status = StringVar(value="Pick a save file and a regen file to get started")
 
         self._all_matches: list[RegenMatch] = []
         self._shown: list[RegenMatch] = []
         self._busy = False
         self._q: queue.Queue = queue.Queue()
 
+        self._build_menu()
         self._build_form()
         self._build_filter_bar()
         self._build_table()
@@ -61,6 +65,39 @@ class App:
         self._poll_queue()
 
     # ---- layout ----------------------------------------------------------
+
+    def _build_menu(self):
+        menubar = Menu(self.root)
+        helpmenu = Menu(menubar, tearoff=0)
+        helpmenu.add_command(label="About", command=self._show_about)
+        menubar.add_cascade(label="Help", menu=helpmenu)
+        self.root.config(menu=menubar)
+
+    def _show_about(self):
+        win = Toplevel(self.root)
+        win.title("About")
+        win.resizable(False, False)
+        win.transient(self.root)
+        frame = ttk.Frame(win, padding=16)
+        frame.pack(fill=BOTH, expand=True)
+
+        ttk.Label(frame, text=f"CM 01/02 Regen Note Writer  {__version__}",
+                  font=self._heading_font).pack(anchor=W)
+        ttk.Label(frame, text="Vibe coded by Russta & Claude").pack(anchor=W, pady=(4, 12))
+
+        def link(text: str, url: str):
+            lbl = ttk.Label(frame, text=text, foreground="#0a58ca", cursor="hand2")
+            f = tkfont.Font(font=lbl.cget("font"))
+            f.configure(underline=True)
+            lbl.configure(font=f)
+            lbl.pack(anchor=W, pady=2)
+            lbl.bind("<Button-1>", lambda _e: webbrowser.open(url))
+
+        link("GitHub repository", GITHUB_URL)
+        link("CM 01/02 forum thread", FORUM_URL)
+
+        ttk.Button(frame, text="Close", command=win.destroy).pack(anchor="e", pady=(14, 0))
+        win.grab_set()
 
     def _build_form(self):
         f = ttk.Frame(self.root, padding=10)
@@ -82,8 +119,6 @@ class App:
         ttk.Label(opts, text="Min PA").pack(side=LEFT)
         ttk.Spinbox(opts, from_=0, to=999, width=5, textvariable=self.min_pa,
                     command=self._refilter).pack(side=LEFT, padx=(4, 16))
-        ttk.Checkbutton(opts, text="Include pregens",
-                        variable=self.include_pregens, command=self._refilter).pack(side=LEFT)
 
         actions = ttk.Frame(f)
         actions.grid(row=3, column=0, columnspan=3, sticky=W, pady=(10, 0))
@@ -124,8 +159,6 @@ class App:
         base = tkfont.nametofont("TkDefaultFont")
         self._heading_font = tkfont.Font(font=base)
         self._heading_font.configure(weight="bold")
-        self._italic_font = tkfont.Font(font=base)
-        self._italic_font.configure(slant="italic")
         ttk.Style().configure("Treeview.Heading", font=self._heading_font)
 
         self.tree = ttk.Treeview(wrap, columns=[c[0] for c in COLUMNS], show="headings")
@@ -135,7 +168,6 @@ class App:
                               command=lambda k=key: self._sort_by(k))
             self.tree.column(key, width=width, anchor=(W if key in NAME_COLS else "center"),
                              stretch=(key in NAME_COLS))
-        self.tree.tag_configure("pregen", font=self._italic_font)
         vsb = ttk.Scrollbar(wrap, orient=VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side=LEFT, fill=BOTH, expand=True)
@@ -178,18 +210,20 @@ class App:
         if not p:
             return
         self.save_path.set(p)
+        self._logline(f"save: {Path(p).name}")
         for ext in (".gpf2", ".rnw"):
             cand = Path(p + ext)
             if cand.exists():
                 self.baseline_path.set(str(cand))
-                self._logline(f"auto-selected baseline {cand.name}")
+                self._logline(f"found a regen file next to it: {cand.name}")
                 break
 
     def _pick_baseline(self):
-        p = filedialog.askopenfilename(title="Choose day-one baseline",
-                                       filetypes=[("Baselines", "*.gpf2 *.rnw"), ("All", "*.*")])
+        p = filedialog.askopenfilename(title="Choose regen file",
+                                       filetypes=[("Regen files", "*.gpf2 *.rnw"), ("All", "*.*")])
         if p:
             self.baseline_path.set(p)
+            self._logline(f"regen file: {Path(p).name}")
 
     def _run_async(self, fn, on_done, status: str):
         if self._busy:
@@ -238,24 +272,25 @@ class App:
     def _snapshot_done(self, result):
         out, data = result
         gd = data["game_date"]
-        self._logline(f"snapshot: {out}  ({data['player_count']:,} slots, in-game day {gd['day']} of {gd['year']})")
-        self._logline("  reminder: a snapshot is only a baseline if taken on/near day one of a new save.")
+        self._logline(f"wrote regen file: {Path(out).name}  "
+                      f"({data['player_count']:,} players, in-game day {gd['day']} of {gd['year']})")
+        self._logline("  note: this is only a useful regen file if the save is on/near day one.")
         self.baseline_path.set(str(out))
-        self.status.set("Snapshot written and selected as the baseline.")
+        self.status.set("Regen file written and selected.")
 
     def _find(self):
         save = self.save_path.get().strip()
         base = self.baseline_path.get().strip()
         if not save or not base:
-            messagebox.showinfo("Missing input", "Choose both a save file and a baseline.")
+            messagebox.showinfo("Missing input", "Choose both a save file and a regen file.")
             return
         self._run_async(
-            lambda: find_regens(save, base, include_empty_origin=True),
-            self._find_done, "Reading save and matching against the baseline…")
+            lambda: find_regens(save, base, include_empty_origin=False),
+            self._find_done, "Reading the save and matching it against the regen file…")
 
     def _find_done(self, matches: list[RegenMatch]):
         self._all_matches = matches
-        self._logline(f"found {len(matches):,} changed slot(s) total")
+        self._logline(f"found {len(matches):,} regens in the save")
         self._refilter()
 
     def _refilter(self):
@@ -265,15 +300,12 @@ class App:
             pa_min = int(self.min_pa.get() or 0)
         except ValueError:
             pa_min = 0
-        inc_pregens = self.include_pregens.get()
         fo = self.filter_original.get().strip().lower()
         fr = self.filter_regen.get().strip().lower()
 
         rows = []
         for m in self._all_matches:
             if m.current_pa < pa_min:
-                continue
-            if m.original_was_empty and not inc_pregens:
                 continue
             if fo and fo not in m.original_name.lower():
                 continue
@@ -284,9 +316,8 @@ class App:
         self._shown = rows
         self.tree.delete(*self.tree.get_children())
         for m in sorted(rows, key=lambda m: (-m.current_pa, m.slot)):
-            self.tree.insert("", END, tags=(("pregen",) if m.original_was_empty else ()), values=(
-                m.slot, m.original_name or "(pregen)", m.current_name,
-                m.current_ca, m.current_pa,
+            self.tree.insert("", END, values=(
+                m.slot, m.original_name, m.current_name, m.current_ca, m.current_pa,
             ))
         noun = "player" if len(rows) == 1 else "players"
         shown_note = f"{len(rows):,} {noun} shown of {len(self._all_matches):,} regens"

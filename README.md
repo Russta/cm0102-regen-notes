@@ -59,12 +59,12 @@ binary format.
 ## Usage
 
 Double-click the `.exe` (or run `python -m cm0102_regen_notes.gui` from
-source) for the GUI: pick your save and a day-one baseline (`.gpf2` or
-`.rnw`), set the minimum PA, **Find regens**, then **Export CSV** or **Write
-notes to save**. Writing goes **into the save you picked** (with a "back up
-the save first" checkbox, on by default, that drops a timestamped copy
-alongside it); it's done via a temp file + atomic replace so a crash can't
-corrupt the save. There's a **Take snapshot now** button for day one.
+source) for the GUI: pick your save and a **regen file** (a `.gpf2` from
+GPF2, or a `.rnw` from **Take snapshot now**), set the minimum PA, **Find
+Regens**, filter by name if you want, then **Export CSV…** or **Write notes
+to save**. Writing goes **into the save you picked** (with a "back up save"
+checkbox, on by default, that drops a timestamped copy alongside it); it's
+done via a temp file + atomic replace so a crash can't corrupt the save.
 
 ### Command line (from source)
 
