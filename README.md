@@ -1,9 +1,9 @@
 # CM 01/02 Regen Notes Tool
 
-An open-source Windows tool for **Championship Manager 01/02** that identifies
-which of your current players are **regens** of which original players, and
-writes the original name into each regen's in-game **Notes** — directly in
-the `.sav`, without launching the game.
+A Windows tool for **Championship Manager 01/02** that identifies
+which of your current players are **regens** of original players, and
+writes the original name into each regen's in-game **Notes** directly in
+the `.sav` without launching the game.
 
 It's the same idea as the community's Generated Player Finder (GPF2/GPF3),
 rebuilt from scratch as a single double-click `.exe` with the source in the
@@ -12,14 +12,13 @@ open.
 ## How it works
 
 1. **On day one of a new save**, take a snapshot (`Career.sav.rnw`) — one
-   record per `player.dat` slot: the occupant's name plus CA / PA / nation.
-   Already run GPF2? Skip this and point the tool at its `Career.sav.gpf2`.
+   record per `player.dat` slot: the occupant's name plus CA and PA.
 2. **Later**, the tool compares the live save to that snapshot. `player.dat`
    slots are fixed for the life of a save, so a slot whose current occupant's
    name differs from its day-one name is holding a regen — and the day-one
    name is who they replaced. The slot number *is* the link; there's no
    attribute-fingerprint guessing. On the reference save it rediscovers every
-   known regen (Messi, Ronaldo, Lewandowski, …).
+   known regen (Messi, Ronaldo, Lewandowski, etc).
 3. **Filter** by minimum PA (of the current player — the same thing GPF2's
    "potential >=" button does), or by name.
 4. **Export** the list to CSV, and/or **write** each original name into its
@@ -28,21 +27,21 @@ open.
 ## What it does that the older tools don't
 
 - **Writes the results back into the save.** GPF2/GPF3 only show you a list;
-  this annotates every regen's in-game Notes for you, offline, in one pass —
-  additively (it never renames a player in place, unlike Regen Cheat).
-- **Reads GPF2's `.gpf2` directly.** If you already snapshot with GPF2 there's
-  nothing new to run. It also has its own `.rnw` snapshot, which additionally
-  stores CA / PA / nation.
-- **CSV export that opens cleanly in Excel** — UTF-8 with BOM, so accented
-  names ("Germán", "Müller") aren't mojibaked.
-- **Shows Player ID and Staff ID** side by side — the `player.dat` index and
-  the `staff.dat` id — for reverse lookups in editors and other tools.
-- **Accent-insensitive search** — typing "German" finds "Germán".
+  this annotates every regen's in-game Notes for you, offline, in one pass
+  without renaming the player itself.
+- **Reads GPF2's `.gpf2` directly.** If you already snapshot with GPF2 this
+  is backward compatible with your old files. It also has its own `.rnw` file
+  format snapshot, which additionally stores CA and PA.
+- **CSV export that opens cleanly in Excel.** Specifically formatted as UTF-8
+- with BOM, so accented names ("Tchouaméni", "Müller", etc.) aren't mojibaked.
+- **Shows Player ID and Staff ID.** The `player.dat` index and the
+  `staff.dat` id to allow for reverse lookups to other editors and tools.
+- **Accent-insensitive search.** Searching for "Aurelien" finds "Aurélien".
 - **Safe writes.** Temp-file-plus-atomic-replace, optional timestamped
-  backup, and a warning if CM is running (an in-game save would clobber the
-  notes). Byte-for-byte integrity checked against 500 MB+ saves.
-- **Open source (MIT)** and a plain `.exe` — no Python, no scripts, nothing
-  hidden about what it does to your save.
+  backup, and a warning if CM01/02 is running to prevent Note overwrites.
+  Byte-for-byte integrity checked against 500 MB+ saves.
+- **Open source (MIT).** Plain `.exe` to be user friendly and nothing
+  hidden about what it's doing to your save.
 
 See [`docs/HANDOFF.md`](docs/HANDOFF.md) and
 [`docs/gpf2-and-matching.md`](docs/gpf2-and-matching.md) for the
