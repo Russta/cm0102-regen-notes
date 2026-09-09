@@ -119,6 +119,30 @@ def test_annotate_in_place_no_backup(tmp_path):
     assert not list(tmp_path.glob("*(backup*"))
 
 
+def test_write_csv_format(tmp_path):
+    from cm0102_regen_notes.match import RegenMatch, write_csv
+
+    out = tmp_path / "regens.csv"
+    write_csv([RegenMatch(42866, "Germán Burgos", "Iván Fleita", 29729, 163, 200, None)], out)
+
+    raw = out.read_bytes()
+    assert raw.startswith(b"\xef\xbb\xbf")  # UTF-8 BOM so Excel reads it right
+    text = out.read_text(encoding="utf-8-sig")
+    lines = text.splitlines()
+    assert lines[0] == "Player ID,Staff ID,Original Player,Regen,CA,PA"
+    assert lines[1] == "42866,29729,Germán Burgos,Iván Fleita,163,200"
+
+
+def test_accent_fold_search():
+    from cm0102_regen_notes.gui import _fold
+
+    assert _fold("Germán") == "german"
+    assert _fold("Thomas Müller") == "thomas muller"
+    assert _fold("Łukasz") == "lukasz"
+    assert _fold("Suárez") == "suarez"
+    assert _fold("german") in _fold("Germán Burgos")
+
+
 def test_annotate_refuses_to_overwrite_input(tmp_path):
     sp, gp, _ = _write_world(tmp_path)
     plan = plan_annotations(sp, gp)

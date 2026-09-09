@@ -10,11 +10,11 @@ from __future__ import annotations
 import queue
 import threading
 import traceback
-import webbrowser
+import unicodedata
 from pathlib import Path
 from tkinter import (
     BOTH, END, LEFT, RIGHT, VERTICAL, W, X, Y,
-    BooleanVar, Menu, StringVar, Tk, Toplevel, filedialog, font as tkfont, messagebox, ttk,
+    BooleanVar, StringVar, Tk, filedialog, font as tkfont, messagebox, ttk,
 )
 from tkinter.scrolledtext import ScrolledText
 
@@ -24,8 +24,19 @@ from .match import RegenMatch, find_regens, write_csv
 from .notes import NOTE_TEXT_MAX
 from .snapshot import write_snapshot
 
-GITHUB_URL = "https://github.com/Russta/cm0102-regen-notes"
-FORUM_URL = "https://champman0102.co.uk/"  # TODO: point at the release thread once it exists
+# Characters that NFKD doesn't decompose but players will still type plainly.
+_FOLD_MAP = str.maketrans({
+    "ø": "o", "œ": "oe", "æ": "ae", "ð": "d", "þ": "th",
+    "ł": "l", "đ": "d", "ħ": "h", "ı": "i", "ŧ": "t", "ŋ": "n",
+})
+
+
+def _fold(text: str) -> str:
+    """Lower-case and strip accents so "german" matches "Germán"."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return stripped.translate(_FOLD_MAP)
+
 
 COLUMNS = [
     ("slot", "Player ID", 70),
@@ -54,11 +65,11 @@ class App:
         self.status = StringVar(value="Pick a save file and a regen file to get started")
 
         self._all_matches: list[RegenMatch] = []
+        self._folded: list[tuple[str, str]] = []
         self._shown: list[RegenMatch] = []
         self._busy = False
         self._q: queue.Queue = queue.Queue()
 
-        self._build_menu()
         self._build_form()
         self._build_filter_bar()
         self._build_table()
@@ -66,39 +77,6 @@ class App:
         self._poll_queue()
 
     # ---- layout ----------------------------------------------------------
-
-    def _build_menu(self):
-        menubar = Menu(self.root)
-        helpmenu = Menu(menubar, tearoff=0)
-        helpmenu.add_command(label="About", command=self._show_about)
-        menubar.add_cascade(label="Help", menu=helpmenu)
-        self.root.config(menu=menubar)
-
-    def _show_about(self):
-        win = Toplevel(self.root)
-        win.title("About")
-        win.resizable(False, False)
-        win.transient(self.root)
-        frame = ttk.Frame(win, padding=16)
-        frame.pack(fill=BOTH, expand=True)
-
-        ttk.Label(frame, text=f"CM 01/02 Regen Note Writer  {__version__}",
-                  font=self._heading_font).pack(anchor=W)
-        ttk.Label(frame, text="Vibe coded by Russta & Claude").pack(anchor=W, pady=(4, 12))
-
-        def link(text: str, url: str):
-            lbl = ttk.Label(frame, text=text, foreground="#0a58ca", cursor="hand2")
-            f = tkfont.Font(font=lbl.cget("font"))
-            f.configure(underline=True)
-            lbl.configure(font=f)
-            lbl.pack(anchor=W, pady=2)
-            lbl.bind("<Button-1>", lambda _e: webbrowser.open(url))
-
-        link("GitHub repository", GITHUB_URL)
-        link("CM 01/02 forum thread", FORUM_URL)
-
-        ttk.Button(frame, text="Close", command=win.destroy).pack(anchor="e", pady=(14, 0))
-        win.grab_set()
 
     def _build_form(self):
         f = ttk.Frame(self.root, padding=10)
@@ -201,6 +179,7 @@ class App:
 
     def _invalidate(self):
         self._all_matches = []
+        self._folded = []
         self._shown = []
         self.tree.delete(*self.tree.get_children())
         self._csv_btn.configure(state="disabled")
@@ -291,6 +270,7 @@ class App:
 
     def _find_done(self, matches: list[RegenMatch]):
         self._all_matches = matches
+        self._folded = [(_fold(m.original_name), _fold(m.current_name)) for m in matches]
         self._logline(f"found {len(matches):,} regens in the save")
         self._refilter()
 
@@ -301,16 +281,16 @@ class App:
             pa_min = int(self.min_pa.get() or 0)
         except ValueError:
             pa_min = 0
-        fo = self.filter_original.get().strip().lower()
-        fr = self.filter_regen.get().strip().lower()
+        q_orig = _fold(self.filter_original.get().strip())
+        q_regen = _fold(self.filter_regen.get().strip())
 
         rows = []
-        for m in self._all_matches:
+        for m, (orig_folded, regen_folded) in zip(self._all_matches, self._folded):
             if m.current_pa < pa_min:
                 continue
-            if fo and fo not in m.original_name.lower():
+            if q_orig and q_orig not in orig_folded:
                 continue
-            if fr and fr not in m.current_name.lower():
+            if q_regen and q_regen not in regen_folded:
                 continue
             rows.append(m)
 
@@ -323,7 +303,7 @@ class App:
             ))
         noun = "player" if len(rows) == 1 else "players"
         shown_note = f"{len(rows):,} {noun} shown of {len(self._all_matches):,} regens"
-        if fo or fr:
+        if q_orig or q_regen:
             shown_note += "  [filtered]"
         self.status.set(shown_note)
         self._csv_btn.configure(state=("normal" if rows else "disabled"))

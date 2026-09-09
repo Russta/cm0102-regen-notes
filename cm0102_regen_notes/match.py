@@ -141,15 +141,14 @@ def find_regens(
 
 
 def write_csv(matches: list[RegenMatch], out_path: str | Path) -> None:
-    with open(out_path, "w", newline="", encoding="utf-8") as f:
+    # utf-8-sig: the BOM makes Excel read it as UTF-8, so accented names
+    # (Germán, Müller) don't come out mojibaked. Columns and headers match
+    # the app's table.
+    with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
-        w.writerow([
-            "slot", "original_name", "current_name", "current_staff_id",
-            "current_ca", "current_pa", "original_pa",
-        ])
+        w.writerow(["Player ID", "Staff ID", "Original Player", "Regen", "CA", "PA"])
         for m in matches:
             w.writerow([
-                m.slot, m.original_name, m.current_name, m.current_staff_id,
+                m.slot, m.current_staff_id, m.original_name, m.current_name,
                 m.current_ca, m.current_pa,
-                "" if m.original_pa is None else m.original_pa,
             ])
