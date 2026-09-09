@@ -57,20 +57,3 @@ class Gpf2Snapshot:
         """GPF2 names its file ``<save>.gpf2`` (i.e. keeps the ``.sav``)."""
         p = Path(save_path)
         return p.with_name(p.name + ".gpf2")
-
-
-def write_gpf2(name_triples: list[tuple[int, int, int]], out_path: str | Path) -> Path:
-    """Write a GPF2-format ``.gpf2``: one 16-byte record per player slot, in
-    slot order -- ``(firstNameIndex, secondNameIndex, commonNameIndex, slot)``.
-
-    ``name_triples[slot]`` is the day-one ``(first, second, common)`` name-table
-    index of that slot's occupant. This is byte-for-byte the structure GPF2
-    writes, so GPF2 / GPF3 / Regen Cheat should accept it as their snapshot --
-    verify against a real install before relying on it.
-    """
-    buf = bytearray()
-    for slot, (first, second, common) in enumerate(name_triples):
-        buf += struct.pack("<iiii", first, second, common, slot)
-    out = Path(out_path)
-    out.write_bytes(bytes(buf))
-    return out

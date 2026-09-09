@@ -142,23 +142,6 @@ def test_cm0102_running_returns_bool():
     assert isinstance(_cm0102_running(), bool)
 
 
-def test_snapshot_can_emit_gpf2_that_reads_back(tmp_path):
-    from cm0102_regen_notes.gpf2 import Gpf2Snapshot
-    from cm0102_regen_notes.snapshot import build_snapshot, write_gpf2_from_data
-
-    sp, _gp, _meta = _write_world(tmp_path)
-    data = build_snapshot(sp)
-    out = write_gpf2_from_data(data, tmp_path / "emitted.gpf2")
-
-    assert out.stat().st_size == data["player_count"] * 16
-    snap = Gpf2Snapshot.load(out)          # our own reader accepts it
-    assert len(snap) == data["player_count"]
-    # slot 0's day-one name indices survive the round trip
-    row0 = next(r for r in data["rows"] if r[0] == 0)
-    fi, si, ci = (data["fields"].index(k) for k in ("first", "second", "common"))
-    assert snap.entries[0] == (row0[fi], row0[si], row0[ci])
-
-
 def test_accent_fold_search():
     from cm0102_regen_notes.gui import _fold
 

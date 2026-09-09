@@ -72,9 +72,8 @@ done via a temp file + atomic replace so a crash can't corrupt the save.
 pip install -e .
 
 # on day one of a new save (immediately after the first save), take a baseline:
-cm0102-regen-notes snapshot "Career.sav"                       # -> Career.sav.rnw
-cm0102-regen-notes snapshot "Career.sav" --format gpf2         # -> Career.sav.gpf2 (legacy GPF2/GPF3 format)
-#   ...or just use GPF2's own Career.sav.gpf2 if you already run GPF2
+cm0102-regen-notes snapshot "Career.sav"              # -> Career.sav.rnw
+#   ...or just use GPF2's Career.sav.gpf2 if you already run GPF2
 
 # later, after regens have appeared:
 cm0102-regen-notes match    "Career.sav" "Career.sav.gpf2" --potential-min 150 --csv regens.csv

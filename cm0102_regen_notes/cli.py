@@ -20,6 +20,7 @@ from .annotate import apply_annotations, apply_annotations_in_place, plan_annota
 from .match import find_regens, write_csv
 from .notes import parse_notes, write_note
 from .savfile import SavFile
+from .snapshot import write_snapshot
 
 
 def _cmd_list_blocks(args: argparse.Namespace) -> int:
@@ -67,22 +68,9 @@ def _cmd_write_note(args: argparse.Namespace) -> int:
 
 
 def _cmd_snapshot(args: argparse.Namespace) -> int:
-    import json as _json
-
-    from .snapshot import build_snapshot, write_gpf2_from_data
-
-    data = build_snapshot(args.save)
+    out, data = write_snapshot(args.save, args.out)
     gd = data["game_date"]
-
-    if args.format in ("rnw", "both"):
-        rnw = Path(args.out) if (args.out and args.format == "rnw") else Path(str(args.save) + ".rnw")
-        rnw.write_text(_json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        print(f"rnw written:  {rnw}  ({rnw.stat().st_size:,} bytes, {data['player_count']:,} slots)")
-    if args.format in ("gpf2", "both"):
-        gpf2 = Path(args.out) if (args.out and args.format == "gpf2") else Path(str(args.save) + ".gpf2")
-        write_gpf2_from_data(data, gpf2)
-        print(f"gpf2 written: {gpf2}  ({gpf2.stat().st_size:,} bytes)  [GPF2/GPF3 format - test before relying on it]")
-
+    print(f"snapshot written: {out}  ({out.stat().st_size:,} bytes, {data['player_count']:,} slots)")
     print(f"in-game date in this save: day {gd['day']} of {gd['year']}")
     print("note: a snapshot is only a useful baseline if taken on (or near) day one of a new save.")
     return 0
@@ -169,11 +157,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("staff_id", type=int); p.add_argument("text")
     p.set_defaults(func=_cmd_write_note)
 
-    p = sub.add_parser("snapshot", help="write a day-one snapshot next to a save")
+    p = sub.add_parser("snapshot", help="write a day-one .rnw snapshot next to a save")
     p.add_argument("save")
-    p.add_argument("out", nargs="?", help="output path (defaults to <save>.rnw / <save>.gpf2)")
-    p.add_argument("--format", choices=["rnw", "gpf2", "both"], default="rnw",
-                   help="rnw = our format (default); gpf2 = legacy GPF2/GPF3 format; both")
+    p.add_argument("out", nargs="?", help="defaults to <save>.rnw")
     p.set_defaults(func=_cmd_snapshot)
 
     p = sub.add_parser("match", help="list regens: current name vs day-one baseline name")
