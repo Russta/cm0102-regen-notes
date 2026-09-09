@@ -31,7 +31,9 @@ open.
   without renaming the player itself.
 - **Reads GPF2's `.gpf2` directly.** If you already snapshot with GPF2 this
   is backward compatible with your old files. It also has its own `.rnw` file
-  format snapshot, which additionally stores CA and PA.
+  format snapshot, which additionally stores CA and PA, plus each player's
+  nation as an index into `nation.dat` — nothing reads the nation yet, it's
+  just captured as additional assistance for later.
 - **CSV export that opens cleanly in Excel.** Specifically formatted as UTF-8
   with BOM, so accented names ("Tchouaméni", "Müller", etc.) aren't mojibaked.
 - **Shows Player ID and Staff ID.** The `player.dat` index and the
