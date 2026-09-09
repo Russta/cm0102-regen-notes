@@ -29,10 +29,11 @@ jobs:
         run: |
           pip install pytest
           pytest
+          python -c "import cm0102_regen_notes.gui"
 
       - name: Build exe
         run: >
-          pyinstaller --onefile --name cm0102-regen-notes
+          pyinstaller --onefile --windowed --name cm0102-regen-notes
           --collect-submodules cm0102_regen_notes
           packaging/pyinstaller_entry.py
 

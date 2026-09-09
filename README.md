@@ -29,7 +29,7 @@ What works today:
 | Regen matching (current name vs day-one name, by `player.dat` slot) | ✅ rediscovers all 12 known regens in the reference save |
 | `potential >=` filter + CSV export | ✅ |
 | Write matched originals into every regen's Notes | ✅ `annotate`, byte-integrity-checked |
-| GUI | ⬜ not started |
+| GUI (Tkinter) | ✅ snapshot / find regens / filter / CSV / write notes |
 | Auto-built Windows `.exe` on release | ✅ workflow in place, untested against a real release |
 
 ### How the matching works
@@ -56,7 +56,14 @@ Every write goes to a **new output file**; the tool never modifies the save
 you point it at. Still: keep your own backups. This edits an undocumented
 binary format.
 
-## Usage (from source)
+## Usage
+
+Double-click the `.exe` (or run `python -m cm0102_regen_notes.gui` from
+source) for the GUI: pick your save and a day-one baseline (`.gpf2` or
+`.rnw`), set the minimum PA, **Find regens**, then **Export CSV** or **Write
+Notes to new save**. There's a **Take snapshot now** button for day one.
+
+### Command line (from source)
 
 ```bash
 pip install -e .
