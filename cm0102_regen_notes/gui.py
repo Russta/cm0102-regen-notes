@@ -7,7 +7,10 @@ Tk thread via ``root.after``.
 
 from __future__ import annotations
 
+import csv
 import queue
+import subprocess
+import sys
 import threading
 import traceback
 import unicodedata
@@ -36,6 +39,36 @@ def _fold(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text.casefold())
     stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
     return stripped.translate(_FOLD_MAP)
+
+
+def _cm0102_running() -> bool:
+    """True if the CM 01/02 game is running.
+
+    Matches ``cm0102.exe`` and patched variants like ``cm0102_GDI.exe`` /
+    ``cm0102_Saturn.exe`` -- but not the editor (``cm0102ed.exe``) and not this
+    tool (``cm0102-regen-notes.exe``).
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        out = subprocess.run(
+            ["tasklist", "/NH", "/FO", "CSV"],
+            capture_output=True, text=True, timeout=5,
+            creationflags=0x08000000,  # CREATE_NO_WINDOW - don't flash a console
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+    self_exe = Path(sys.executable).name.lower()
+    for row in csv.reader(out.stdout.splitlines()):
+        if not row:
+            continue
+        name = row[0].strip().lower()
+        if name == self_exe:
+            continue
+        if name == "cm0102.exe" or (name.startswith("cm0102_") and name.endswith(".exe")):
+            return True
+    return False
 
 
 COLUMNS = [
@@ -86,7 +119,7 @@ class App:
         ttk.Entry(f, textvariable=self.save_path).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(f, text="Browse…", command=self._pick_save).grid(row=0, column=2, sticky=W)
 
-        ttk.Label(f, text="Regen file (.gpf2 / .rnw)").grid(row=1, column=0, sticky=W, pady=2)
+        ttk.Label(f, text="Regen file (.gpf2 or .rnw)").grid(row=1, column=0, sticky=W, pady=2)
         ttk.Entry(f, textvariable=self.baseline_path).grid(row=1, column=1, sticky="ew", padx=6)
         bf = ttk.Frame(f)
         bf.grid(row=1, column=2, sticky=W)
@@ -351,6 +384,15 @@ class App:
                 writable.append(m)
         if not writable:
             messagebox.showinfo("Nothing to write", "No eligible regens in the current view.")
+            return
+
+        if _cm0102_running() and not messagebox.askokcancel(
+            "CM 01/02 is running",
+            "CM01/02 appears to be running. If you write these notes to a save file "
+            "currently in play you will overwrite them with whatever is currently there "
+            "when you next save.\n\nWrite anyway?",
+            icon="warning",
+        ):
             return
 
         do_backup = self.backup_first.get()

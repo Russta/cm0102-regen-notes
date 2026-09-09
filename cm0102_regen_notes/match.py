@@ -147,7 +147,8 @@ def write_csv(matches: list[RegenMatch], out_path: str | Path) -> None:
     with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["Player ID", "Staff ID", "Original Player", "Regen", "CA", "PA"])
-        for m in matches:
+        # Same default order as the app's table: highest PA first.
+        for m in sorted(matches, key=lambda m: (-m.current_pa, m.slot)):
             w.writerow([
                 m.slot, m.current_staff_id, m.original_name, m.current_name,
                 m.current_ca, m.current_pa,

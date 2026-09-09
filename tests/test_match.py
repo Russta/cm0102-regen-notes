@@ -119,18 +119,44 @@ def test_annotate_in_place_no_backup(tmp_path):
     assert not list(tmp_path.glob("*(backup*"))
 
 
-def test_write_csv_format(tmp_path):
+def test_write_csv_format_and_order(tmp_path):
     from cm0102_regen_notes.match import RegenMatch, write_csv
 
     out = tmp_path / "regens.csv"
-    write_csv([RegenMatch(42866, "Germán Burgos", "Iván Fleita", 29729, 163, 200, None)], out)
+    write_csv([
+        RegenMatch(10, "Low PA Guy", "Regen A", 111, 100, 140, None),
+        RegenMatch(42866, "Germán Burgos", "Iván Fleita", 29729, 163, 200, None),
+    ], out)
 
     raw = out.read_bytes()
     assert raw.startswith(b"\xef\xbb\xbf")  # UTF-8 BOM so Excel reads it right
-    text = out.read_text(encoding="utf-8-sig")
-    lines = text.splitlines()
+    lines = out.read_text(encoding="utf-8-sig").splitlines()
     assert lines[0] == "Player ID,Staff ID,Original Player,Regen,CA,PA"
-    assert lines[1] == "42866,29729,Germán Burgos,Iván Fleita,163,200"
+    assert lines[1] == "42866,29729,Germán Burgos,Iván Fleita,163,200"  # highest PA first
+    assert lines[2] == "10,111,Low PA Guy,Regen A,100,140"
+
+
+def test_cm0102_running_returns_bool():
+    from cm0102_regen_notes.gui import _cm0102_running
+
+    assert isinstance(_cm0102_running(), bool)
+
+
+def test_snapshot_can_emit_gpf2_that_reads_back(tmp_path):
+    from cm0102_regen_notes.gpf2 import Gpf2Snapshot
+    from cm0102_regen_notes.snapshot import build_snapshot, write_gpf2_from_data
+
+    sp, _gp, _meta = _write_world(tmp_path)
+    data = build_snapshot(sp)
+    out = write_gpf2_from_data(data, tmp_path / "emitted.gpf2")
+
+    assert out.stat().st_size == data["player_count"] * 16
+    snap = Gpf2Snapshot.load(out)          # our own reader accepts it
+    assert len(snap) == data["player_count"]
+    # slot 0's day-one name indices survive the round trip
+    row0 = next(r for r in data["rows"] if r[0] == 0)
+    fi, si, ci = (data["fields"].index(k) for k in ("first", "second", "common"))
+    assert snap.entries[0] == (row0[fi], row0[si], row0[ci])
 
 
 def test_accent_fold_search():

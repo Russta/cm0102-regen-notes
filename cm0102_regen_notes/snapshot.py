@@ -93,6 +93,19 @@ def write_snapshot(save_path: str | Path, out_path: str | Path | None = None) ->
     return out, data
 
 
+def write_gpf2_from_data(data: dict, out_path: str | Path) -> Path:
+    """Emit a legacy GPF2-format ``.gpf2`` from a snapshot dict (see
+    :func:`build_snapshot`). Lets our day-one snapshot double as the file GPF2 /
+    GPF3 / Regen Cheat expect."""
+    from .gpf2 import write_gpf2
+
+    fields = data["fields"]
+    fi, si, ci, sl = (fields.index(k) for k in ("first", "second", "common", "slot"))
+    triples_by_slot = {row[sl]: (row[fi], row[si], row[ci]) for row in data["rows"]}
+    triples = [triples_by_slot.get(s, (0, 0, 0)) for s in range(data["player_count"])]
+    return write_gpf2(triples, out_path)
+
+
 class RnwSnapshot:
     """A loaded ``.rnw`` file, indexed by slot."""
 
