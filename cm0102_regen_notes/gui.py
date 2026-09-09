@@ -13,7 +13,7 @@ import traceback
 from pathlib import Path
 from tkinter import (
     BOTH, END, LEFT, RIGHT, VERTICAL, W, X, Y,
-    BooleanVar, StringVar, Tk, filedialog, messagebox, ttk,
+    BooleanVar, StringVar, Tk, filedialog, font as tkfont, messagebox, ttk,
 )
 from tkinter.scrolledtext import ScrolledText
 
@@ -43,8 +43,10 @@ class App:
         self.save_path = StringVar()
         self.baseline_path = StringVar()
         self.min_pa = StringVar(value="150")
-        self.include_empty = BooleanVar(value=False)
+        self.include_pregens = BooleanVar(value=False)
         self.backup_first = BooleanVar(value=True)
+        self.filter_original = StringVar()
+        self.filter_regen = StringVar()
         self.status = StringVar(value="Pick a save file and a day-one baseline.")
 
         self._all_matches: list[RegenMatch] = []
@@ -53,6 +55,7 @@ class App:
         self._q: queue.Queue = queue.Queue()
 
         self._build_form()
+        self._build_filter_bar()
         self._build_table()
         self._build_log()
         self._poll_queue()
@@ -79,8 +82,8 @@ class App:
         ttk.Label(opts, text="Min PA").pack(side=LEFT)
         ttk.Spinbox(opts, from_=0, to=999, width=5, textvariable=self.min_pa,
                     command=self._refilter).pack(side=LEFT, padx=(4, 16))
-        ttk.Checkbutton(opts, text="include regens whose slot had no day-one player",
-                        variable=self.include_empty, command=self._refilter).pack(side=LEFT)
+        ttk.Checkbutton(opts, text="Include pregens",
+                        variable=self.include_pregens, command=self._refilter).pack(side=LEFT)
 
         actions = ttk.Frame(f)
         actions.grid(row=3, column=0, columnspan=3, sticky=W, pady=(10, 0))
@@ -99,15 +102,40 @@ class App:
         for var in (self.save_path, self.baseline_path):
             var.trace_add("write", lambda *_: self._invalidate())
 
+    def _build_filter_bar(self):
+        fb = ttk.Frame(self.root, padding=(10, 0))
+        fb.pack(fill=X)
+        ttk.Label(fb, text="Filter  —  Original Player").pack(side=LEFT)
+        ttk.Entry(fb, textvariable=self.filter_original, width=26).pack(side=LEFT, padx=(4, 14))
+        ttk.Label(fb, text="Regen").pack(side=LEFT)
+        ttk.Entry(fb, textvariable=self.filter_regen, width=26).pack(side=LEFT, padx=(4, 14))
+        ttk.Button(fb, text="Clear", command=self._clear_filters).pack(side=LEFT)
+        for var in (self.filter_original, self.filter_regen):
+            var.trace_add("write", lambda *_: self._refilter())
+
+    def _clear_filters(self):
+        self.filter_original.set("")
+        self.filter_regen.set("")
+
     def _build_table(self):
-        wrap = ttk.Frame(self.root, padding=(10, 0))
+        wrap = ttk.Frame(self.root, padding=(10, 4))
         wrap.pack(fill=BOTH, expand=True)
+
+        base = tkfont.nametofont("TkDefaultFont")
+        self._heading_font = tkfont.Font(font=base)
+        self._heading_font.configure(weight="bold")
+        self._italic_font = tkfont.Font(font=base)
+        self._italic_font.configure(slant="italic")
+        ttk.Style().configure("Treeview.Heading", font=self._heading_font)
 
         self.tree = ttk.Treeview(wrap, columns=[c[0] for c in COLUMNS], show="headings")
         for key, label, width in COLUMNS:
-            self.tree.heading(key, text=label, command=lambda k=key: self._sort_by(k))
+            heading_anchor = W if key in NAME_COLS else "center"
+            self.tree.heading(key, text=label, anchor=heading_anchor,
+                              command=lambda k=key: self._sort_by(k))
             self.tree.column(key, width=width, anchor=(W if key in NAME_COLS else "center"),
                              stretch=(key in NAME_COLS))
+        self.tree.tag_configure("pregen", font=self._italic_font)
         vsb = ttk.Scrollbar(wrap, orient=VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side=LEFT, fill=BOTH, expand=True)
@@ -237,20 +265,33 @@ class App:
             pa_min = int(self.min_pa.get() or 0)
         except ValueError:
             pa_min = 0
-        inc_empty = self.include_empty.get()
+        inc_pregens = self.include_pregens.get()
+        fo = self.filter_original.get().strip().lower()
+        fr = self.filter_regen.get().strip().lower()
 
-        rows = [
-            m for m in self._all_matches
-            if m.current_pa >= pa_min and (inc_empty or not m.original_was_empty)
-        ]
+        rows = []
+        for m in self._all_matches:
+            if m.current_pa < pa_min:
+                continue
+            if m.original_was_empty and not inc_pregens:
+                continue
+            if fo and fo not in m.original_name.lower():
+                continue
+            if fr and fr not in m.current_name.lower():
+                continue
+            rows.append(m)
+
         self._shown = rows
         self.tree.delete(*self.tree.get_children())
         for m in sorted(rows, key=lambda m: (-m.current_pa, m.slot)):
-            self.tree.insert("", END, values=(
-                m.slot, m.original_name or "(empty slot)", m.current_name,
+            self.tree.insert("", END, tags=(("pregen",) if m.original_was_empty else ()), values=(
+                m.slot, m.original_name or "(pregen)", m.current_name,
                 m.current_ca, m.current_pa,
             ))
-        self.status.set(f"{len(rows):,} regen(s) shown  (of {len(self._all_matches):,} changed slots)")
+        shown_note = f"{len(rows):,} regen(s) shown  (of {len(self._all_matches):,} changed slots)"
+        if fo or fr:
+            shown_note += "  [filtered]"
+        self.status.set(shown_note)
         self._csv_btn.configure(state=("normal" if rows else "disabled"))
         self._write_btn.configure(state=("normal" if rows else "disabled"))
 
